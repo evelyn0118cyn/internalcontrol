@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>华诚集团内部控制评价智能体</title>
+<meta name="description" content="华诚集团 120 个内部控制点的设计有效性与运行有效性逐点评估、缺陷三级分类与根因合并、风险矩阵加权评分与一票否决结论、重大缺陷红色预警。">
+<style>
+/* @@APP_CSS@@ */
+</style>
+</head>
+<body>
+
+<!-- ============================ 顶部固定标题栏 ============================ -->
+<header class="topbar" id="topbar">
+  <div class="topbar-l">
+    <div class="brand-mark" aria-hidden="true">控</div>
+    <div class="brand-text">
+      <h1>华诚集团内部控制评价智能体</h1>
+      <div class="brand-sub">年度内控自评 · 120 个控制点逐点评估 · 风险矩阵加权评分 · 一票否决与红色预警</div>
+    </div>
+  </div>
+  <div class="topbar-r">
+    <span class="tb-chip" id="tbScope" title="标准覆盖面：120 个控制点">标准口径 120 个控制点</span>
+    <button type="button" class="btn btn-ghost" id="btnApiSettings">⚙ 大模型API设置</button>
+    <button type="button" class="btn btn-ghost" id="btnEmbeddedTest">🧪 内嵌测试示例</button>
+    <button type="button" class="btn btn-ghost" id="btnHelp">? 使用说明</button>
+  </div>
+</header>
+
+<!-- ============================ 红色预警横幅 ============================ -->
+<div class="alert-banner" id="alertBanner" hidden>
+  <div class="alert-banner-in">
+    <span class="alert-ico" aria-hidden="true">⚠️</span>
+    <div class="alert-text">
+      <strong id="alertTitle">检测到 0 项重大缺陷，触发红色预警</strong>
+      <span id="alertSub">结论已一票否决判为「无效」，请立即查看红色预警卡。</span>
+    </div>
+    <button type="button" class="btn btn-alert" id="btnGotoAlert">查看预警卡</button>
+  </div>
+</div>
+
+<!-- ============================ 主体三栏 ============================ -->
+<div class="layout">
+
+  <!-- ---------- 左栏：步骤导航 ---------- -->
+  <aside class="col-nav">
+    <div class="card nav-card">
+      <div class="card-h"><h2>评价流程</h2></div>
+      <nav class="stepnav" id="stepnav" aria-label="评价步骤导航">
+        <button type="button" class="step-item" data-step="1">
+          <span class="step-n">1</span>
+          <span class="step-t"><b>导入材料</b><em>控制点清单 / 自评表 / 缺陷记录</em></span>
+          <span class="step-s" data-state="1">未开始</span>
+        </button>
+        <div class="step-line" aria-hidden="true"></div>
+        <button type="button" class="step-item" data-step="2">
+          <span class="step-n">2</span>
+          <span class="step-t"><b>逐点评估</b><em>设计 + 运行双维度 checklist</em></span>
+          <span class="step-s" data-state="2">未开始</span>
+        </button>
+        <div class="step-line" aria-hidden="true"></div>
+        <button type="button" class="step-item" data-step="3">
+          <span class="step-n">3</span>
+          <span class="step-t"><b>出具结论</b><em>评分 · 缺陷 · 结论 · 预警</em></span>
+          <span class="step-s" data-state="3">未开始</span>
+        </button>
+      </nav>
+      <div class="nav-hint">流程对应工作流技能 <code>246_内部控制评价系统.md</code> 的五阶段：环境评估 → 风险识别 → 控制设计 → 测试评价 → 改进跟踪。</div>
+    </div>
+
+    <div class="card nav-card">
+      <div class="card-h"><h2>工作区</h2></div>
+      <div class="wsnav" id="wsnav">
+        <button type="button" class="ws-item on" data-view="import">材料导入与设置</button>
+        <button type="button" class="ws-item" data-view="eval">控制点评估表</button>
+        <button type="button" class="ws-item" data-view="defect">缺陷清单</button>
+        <button type="button" class="ws-item" data-view="score">评分明细</button>
+        <button type="button" class="ws-item" data-view="conclusion">评价结论</button>
+      </div>
+      <div class="nav-hint">数据只在本机：上传材料仅保存在浏览器内存与本地存储，不会上传到除大模型 API 之外的任何服务器。</div>
+    </div>
+
+    <div class="card nav-card">
+      <div class="card-h"><h2>数据台账</h2></div>
+      <table class="mini-kv">
+        <tbody>
+          <tr><th>控制点清单</th><td><span id="ledgerCp">—</span></td></tr>
+          <tr><th>自评记录</th><td><span id="ledgerSa">—</span></td></tr>
+          <tr><th>缺陷记录</th><td><span id="ledgerDf">—</span></td></tr>
+          <tr><th>覆盖率</th><td><span id="ledgerCov">—</span></td></tr>
+          <tr><th>大模型</th><td><span id="ledgerLlm">规则引擎模式</span></td></tr>
+        </tbody>
+      </table>
+      <div class="row row-tight">
+        <button type="button" class="btn btn-ghost btn-sm" id="btnHistory">历史评估记录</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnLog">操作日志</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ---------- 中间主工作区 ---------- -->
+  <main class="col-main">
+
+    <!-- ===== 视图 1：材料导入与设置 ===== -->
+    <section class="view on" data-view-panel="import">
+      <div class="card">
+        <div class="card-h">
+          <h2>① 导入材料</h2>
+          <div class="card-h-r">
+            <button type="button" class="btn btn-ghost btn-sm" id="btnLoadDemo">载入示例材料（120 个控制点）</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btnDownloadTpl">下载导入模板</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btnClearAll">清空全部材料</button>
+          </div>
+        </div>
+        <p class="hint">
+          三份材料是逐点评估的全部依据：<b>控制点清单</b>（评什么）· <b>内控自评表</b>（执行得怎么样）· <b>缺陷记录表</b>（已发现的问题）。
+          每份材料都支持「上传 Excel / CSV」「粘贴文本」「逐条填表单」三种方式。字段校验不通过的会逐条提示，可手工补录。
+        </p>
+        <div class="import-grid">
+
+          <!-- 材料 1：控制点清单 -->
+          <div class="import-card" data-mat="controls">
+            <div class="import-h">
+              <span class="import-t">① 控制点清单</span>
+              <span class="tag" id="tag-controls">未导入</span>
+            </div>
+            <p class="import-d">编号、名称、所属业务流程、风险等级（高/中/低）、责任部门、控制方式、控制频率</p>
+            <div class="dropzone" data-drop="controls">
+              <input type="file" class="file-input" id="file-controls" accept=".xlsx,.xls,.csv,.txt">
+              <span class="dz-ico" aria-hidden="true">⬆</span>
+              <span class="dz-t">点击或拖入 Excel / CSV 文件</span>
+              <span class="dz-s">也支持 .txt 制表符文本</span>
+            </div>
+            <div class="seg" role="tablist">
+              <button type="button" class="seg-i on" data-paste-target="controls">粘贴文本</button>
+              <button type="button" class="seg-i" data-form-target="controls">填表单</button>
+            </div>
+            <div class="pane" data-pane="controls">
+              <textarea class="ta" id="ta-controls" rows="5" placeholder="从 Excel 复制后直接粘贴（首行表头），例如：
+控制点编号	控制点名称	所属流程	风险等级	责任部门	控制方式	控制频率
+C-001	采购申请审批	采购与付款	高	采购部	人工+系统	每笔"></textarea>
+              <div class="row row-tight">
+                <button type="button" class="btn btn-ghost btn-sm" data-act="parse-paste" data-mat="controls">解析粘贴内容</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-act="sample-paste" data-mat="controls">填入格式示例</button>
+              </div>
+            </div>
+            <div class="pane" data-pane="controls-form" hidden>
+              <div class="form-grid" id="form-controls"></div>
+              <div class="row row-tight">
+                <button type="button" class="btn btn-ghost btn-sm" data-act="form-add" data-mat="controls">＋ 追加一行</button>
+                <button type="button" class="btn btn-primary btn-sm" data-act="form-save" data-mat="controls">保存表单数据</button>
+              </div>
+            </div>
+            <div class="import-foot"><span class="import-count" id="count-controls">0 条</span>
+              <button type="button" class="linkbtn" data-act="preview" data-mat="controls">查看已导入</button>
+            </div>
+            <div class="issues" id="issues-controls" hidden></div>
+          </div>
+
+          <!-- 材料 2：内控自评表 -->
+          <div class="import-card" data-mat="selfassessment">
+            <div class="import-h">
+              <span class="import-t">② 内控自评表</span>
+              <span class="tag" id="tag-selfassessment">未导入</span>
+            </div>
+            <p class="import-d">控制点编号、自评结论、执行证据说明、偏差与整改情况、自评人、自评日期</p>
+            <div class="dropzone" data-drop="selfassessment">
+              <input type="file" class="file-input" id="file-selfassessment" accept=".xlsx,.xls,.csv,.txt">
+              <span class="dz-ico" aria-hidden="true">⬆</span>
+              <span class="dz-t">点击或拖入 Excel / CSV 文件</span>
+              <span class="dz-s">也支持 .txt 制表符文本</span>
+            </div>
+            <div class="seg" role="tablist">
+              <button type="button" class="seg-i on" data-paste-target="selfassessment">粘贴文本</button>
+              <button type="button" class="seg-i" data-form-target="selfassessment">填表单</button>
+            </div>
+            <div class="pane" data-pane="selfassessment">
+              <textarea class="ta" id="ta-selfassessment" rows="5" placeholder="从 Excel 复制后直接粘贴（首行表头），例如：
+控制点编号	自评结论	执行证据说明	偏差与整改情况	自评人	自评日期
+C-001	有效	每笔采购申请均有审批单与系统留痕	无偏差	王敏	2025-01-15"></textarea>
+              <div class="row row-tight">
+                <button type="button" class="btn btn-ghost btn-sm" data-act="parse-paste" data-mat="selfassessment">解析粘贴内容</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-act="sample-paste" data-mat="selfassessment">填入格式示例</button>
+              </div>
+            </div>
+            <div class="pane" data-pane="selfassessment-form" hidden>
+              <div class="form-grid" id="form-selfassessment"></div>
+              <div class="row row-tight">
+                <button type="button" class="btn btn-ghost btn-sm" data-act="form-add" data-mat="selfassessment">＋ 追加一行</button>
+                <button type="button" class="btn btn-primary btn-sm" data-act="form-save" data-mat="selfassessment">保存表单数据</button>
+              </div>
+            </div>
+            <div class="import-foot"><span class="import-count" id="count-selfassessment">0 条</span>
+              <button type="button" class="linkbtn" data-act="preview" data-mat="selfassessment">查看已导入</button>
+            </div>
+            <div class="issues" id="issues-selfassessment" hidden></div>
+          </div>
+
+          <!-- 材料 3：缺陷记录表 -->
+          <div class="import-card" data-mat="defects">
+            <div class="import-h">
+              <span class="import-t">③ 缺陷记录表</span>
+              <span class="tag" id="tag-defects">未导入</span>
+            </div>
+            <p class="import-d">缺陷描述、涉及控制点、涉及金额（万元）、发生次数、发现方式（自评/审计/举报/监管）、发现日期、定性红线</p>
+            <div class="dropzone" data-drop="defects">
+              <input type="file" class="file-input" id="file-defects" accept=".xlsx,.xls,.csv,.txt">
+              <span class="dz-ico" aria-hidden="true">⬆</span>
+              <span class="dz-t">点击或拖入 Excel / CSV 文件</span>
+              <span class="dz-s">也支持 .txt 制表符文本</span>
+            </div>
+            <div class="seg" role="tablist">
+              <button type="button" class="seg-i on" data-paste-target="defects">粘贴文本</button>
+              <button type="button" class="seg-i" data-form-target="defects">填表单</button>
+            </div>
+            <div class="pane" data-pane="defects">
+              <textarea class="ta" id="ta-defects" rows="5" placeholder="从 Excel 复制后直接粘贴（首行表头），例如：
+缺陷描述	涉及控制点编号	涉及金额（万元）	发生次数	发现方式	发现日期	定性红线
+付款审批环节存在先付后批	C-037、C-041、C-045	260	3	自评	2025-07-10	无"></textarea>
+              <div class="row row-tight">
+                <button type="button" class="btn btn-ghost btn-sm" data-act="parse-paste" data-mat="defects">解析粘贴内容</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-act="sample-paste" data-mat="defects">填入格式示例</button>
+              </div>
+            </div>
+            <div class="pane" data-pane="defects-form" hidden>
+              <div class="form-grid" id="form-defects"></div>
+              <div class="row row-tight">
+                <button type="button" class="btn btn-ghost btn-sm" data-act="form-add" data-mat="defects">＋ 追加一行</button>
+                <button type="button" class="btn btn-primary btn-sm" data-act="form-save" data-mat="defects">保存表单数据</button>
+              </div>
+            </div>
+            <div class="import-foot"><span class="import-count" id="count-defects">0 条</span>
+              <button type="button" class="linkbtn" data-act="preview" data-mat="defects">查看已导入</button>
+            </div>
+            <div class="issues" id="issues-defects" hidden></div>
+          </div>
+        </div>
+
+        <div class="run-bar">
+          <div class="run-bar-l">
+            <label class="switch"><input type="checkbox" id="chkAllowPartial"> 允许仅评估已导入部分（控制点不足 120 个时）</label>
+            <label class="switch"><input type="checkbox" id="chkUseLlm"> 启用大模型语义增强（仅生成文字，不改变判定与评分）</label>
+          </div>
+          <div class="run-bar-r">
+            <button type="button" class="btn btn-primary btn-lg" id="btnRun">▶ 开始逐点评估</button>
+          </div>
+        </div>
+        <div class="progress-wrap" id="progressWrap" hidden>
+          <div class="progress-head"><span id="progressLabel">已评估 0 / 120</span><span id="progressPct">0%</span></div>
+          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+          <div class="progress-sub" id="progressSub">正在按 checklist 逐项判断设计有效性与运行有效性…</div>
+        </div>
+        <div class="validate" id="validateBox" hidden></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h2>② 评估参数（内置默认值，可修改后重新评估）</h2>
+          <div class="card-h-r"><button type="button" class="btn btn-ghost btn-sm" id="btnResetParams">恢复默认参数</button></div>
+        </div>
+        <div class="param-grid">
+          <div class="param-block">
+            <h3>缺陷金额阈值（万元）</h3>
+            <div class="field"><label for="p-major">重大缺陷下限 ≥</label><input type="number" id="p-major" min="0" step="1"></div>
+            <div class="field"><label for="p-important">重要缺陷下限 ≥</label><input type="number" id="p-important" min="0" step="1"></div>
+            <p class="tiny">定量规则：&lt; 重要阈值 = 一般；≥ 重要阈值且 &lt; 重大阈值 = 重要；≥ 重大阈值 = 重大。</p>
+          </div>
+          <div class="param-block">
+            <h3>缺陷权重（风险矩阵加权）</h3>
+            <div class="field"><label for="p-w-general">一般缺陷</label><input type="number" id="p-w-general" min="0.1" step="0.1"></div>
+            <div class="field"><label for="p-w-important">重要缺陷</label><input type="number" id="p-w-important" min="0.1" step="0.1"></div>
+            <div class="field"><label for="p-w-major">重大缺陷</label><input type="number" id="p-w-major" min="0.1" step="0.1"></div>
+            <p class="tiny" id="pWarnWeight">校验：重大缺陷权重必须 ≥ 一般缺陷权重的 5 倍。</p>
+          </div>
+          <div class="param-block">
+            <h3>控制点权重（风险等级）</h3>
+            <div class="field"><label for="p-cp-high">高</label><input type="number" id="p-cp-high" min="0.1" step="0.1"></div>
+            <div class="field"><label for="p-cp-mid">中</label><input type="number" id="p-cp-mid" min="0.1" step="0.1"></div>
+            <div class="field"><label for="p-cp-low">低</label><input type="number" id="p-cp-low" min="0.1" step="0.1"></div>
+            <p class="tiny">有效性得分：双维度均有效 = 1.0；一项无效 = 0.5；两项无效 = 0。证据不足不计入分母。</p>
+          </div>
+          <div class="param-block">
+            <h3>结论分数线与评分系数</h3>
+            <div class="field"><label for="p-line-pass">判「有效」下限 ≥</label><input type="number" id="p-line-pass" min="0" step="1"></div>
+            <div class="field"><label for="p-line-basic">判「基本有效」下限 ≥</label><input type="number" id="p-line-basic" min="0" step="1"></div>
+            <div class="field"><label for="p-defect-factor">缺陷扣分系数</label><input type="number" id="p-defect-factor" min="0" step="0.1"></div>
+            <p class="tiny">一票否决：只要存在任意 1 条重大缺陷，结论直接判「无效」，不受总分影响。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h2>③ 内部制度补充（可选）</h2>
+          <div class="card-h-r"><button type="button" class="btn btn-ghost btn-sm" id="btnResetInternal">清除补充条款</button></div>
+        </div>
+        <p class="hint">本应用未内嵌集团正式制度文本。系统默认使用<b>精简条款占位表</b>引用内部制度，并在结论中标注「内部制度条款以集团正式文本为准，请核对」。你可在此粘贴真实条款，「名称 + 条款号 + 条文」用竖线或制表符分隔，每行一条，系统会用粘贴内容替换占位条款后再引用。</p>
+        <textarea class="ta" id="taInternal" rows="4" placeholder="集团《内部控制管理办法》|第十二条|不相容职务应当分离，授权审批与业务执行、业务执行与监督检查不得由同一人承担
+集团《资金支付审批规定》|第八条|所有付款必须履行审批程序后办理，不得先支付后补办审批"></textarea>
+        <div class="row row-tight"><button type="button" class="btn btn-ghost btn-sm" id="btnSaveInternal">保存并应用</button>
+          <span class="tiny" id="internalState">当前使用：内置占位条款</span></div>
+      </div>
+    </section>
+
+    <!-- ===== 视图 2：控制点评估表 ===== -->
+    <section class="view" data-view-panel="eval">
+      <div class="card">
+        <div class="card-h">
+          <h2>控制点有效性评估表</h2>
+          <div class="card-h-r">
+            <button type="button" class="btn btn-ghost btn-sm" data-export="eval-csv">导出 CSV</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-export="eval-xlsx">导出 Excel</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-export="eval-pdf">打印 / PDF</button>
+          </div>
+        </div>
+        <div class="stat-row" id="evalStats"></div>
+        <div class="filterbar" id="evalFilter">
+          <div class="filter-grp">
+            <label>综合判定</label>
+            <select class="sel sel-sm" id="f-eval-conclusion"><option value="">全部</option><option value="有效">有效</option><option value="无效">无效</option><option value="证据不足">证据不足</option></select>
+          </div>
+          <div class="filter-grp">
+            <label>缺陷等级</label>
+            <select class="sel sel-sm" id="f-eval-level"><option value="">全部</option><option value="重大">重大</option><option value="重要">重要</option><option value="一般">一般</option><option value="无">无（未并入缺陷）</option></select>
+          </div>
+          <div class="filter-grp">
+            <label>所属流程</label><select class="sel sel-sm" id="f-eval-flow"></select>
+          </div>
+          <div class="filter-grp">
+            <label>责任部门</label><select class="sel sel-sm" id="f-eval-dept"></select>
+          </div>
+          <div class="filter-grp grow">
+            <label>搜索</label><input type="search" class="sel sel-sm" id="f-eval-kw" placeholder="控制点编号 / 名称 / 判定依据">
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnEvalReset">重置筛选</button>
+        </div>
+        <div class="table-wrap tall">
+          <table class="grid" id="tblEval">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="id">控制点编号</th>
+                <th class="sortable" data-sort="name">控制点名称</th>
+                <th class="sortable" data-sort="flow">所属流程</th>
+                <th class="sortable" data-sort="risk">风险等级</th>
+                <th class="sortable" data-sort="dept">责任部门</th>
+                <th class="sortable" data-sort="design">设计有效性</th>
+                <th class="sortable" data-sort="operating">运行有效性</th>
+                <th class="sortable" data-sort="conclusion">综合判定</th>
+                <th>判定依据</th>
+                <th class="sortable" data-sort="defect">关联缺陷</th>
+              </tr>
+            </thead>
+            <tbody id="tbEval"></tbody>
+          </table>
+        </div>
+        <div class="table-foot"><span id="evalFoot">尚未评估</span></div>
+      </div>
+    </section>
+
+    <!-- ===== 视图 3：缺陷清单 ===== -->
+    <section class="view" data-view-panel="defect">
+      <div class="card">
+        <div class="card-h">
+          <h2>缺陷分类清单（根因合并后）</h2>
+          <div class="card-h-r">
+            <button type="button" class="btn btn-ghost btn-sm" data-export="defect-csv">导出 CSV</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-export="defect-xlsx">导出 Excel</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-export="defect-pdf">打印 / PDF</button>
+          </div>
+        </div>
+        <p class="hint">双标准认定：定量金额阈值与定性红线取<b>较高等级</b>（定性红线优先）。同一「根因标签 + 责任部门 + 流程」的失效控制点合并为一条缺陷，同时保留关联控制点清单与合并前数量。</p>
+        <div class="stat-row" id="defectStats"></div>
+        <div class="filterbar">
+          <div class="filter-grp"><label>最终等级</label>
+            <select class="sel sel-sm" id="f-defect-level"><option value="">全部</option><option value="重大">重大</option><option value="重要">重要</option><option value="一般">一般</option></select></div>
+          <div class="filter-grp"><label>性质</label>
+            <select class="sel sel-sm" id="f-defect-nature"><option value="">全部</option><option value="设计缺陷">设计缺陷</option><option value="运行缺陷">运行缺陷</option><option value="设计+运行缺陷">设计+运行缺陷</option></select></div>
+          <div class="filter-grp grow"><label>搜索</label>
+            <input type="search" class="sel sel-sm" id="f-defect-kw" placeholder="缺陷编号 / 根因摘要 / 控制点编号"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnDefectReset">重置筛选</button>
+        </div>
+        <div class="table-wrap tall">
+          <table class="grid" id="tblDefect">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="id">缺陷编号</th>
+                <th class="sortable" data-sort="summary">根因摘要</th>
+                <th class="sortable" data-sort="cpCount">涉及控制点数</th>
+                <th>关联控制点</th>
+                <th class="sortable" data-sort="nature">设计/运行</th>
+                <th class="sortable" data-sort="quantLevel">定量等级</th>
+                <th class="sortable" data-sort="redline">定性红线</th>
+                <th class="sortable" data-sort="level">最终等级</th>
+                <th class="sortable" data-sort="dept">责任部门</th>
+                <th>整改建议</th>
+              </tr>
+            </thead>
+            <tbody id="tbDefect"></tbody>
+          </table>
+        </div>
+        <div class="table-foot"><span id="defectFoot">尚未评估</span></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>缺陷等级分布</h2><span class="card-h-r tiny">ECharts · 等级分布饼图 + 风险矩阵热力图</span></div>
+        <div class="chart-row">
+          <div class="chart-box"><div class="chart" id="chartPie"></div></div>
+          <div class="chart-box"><div class="chart" id="chartMatrix"></div></div>
+        </div>
+        <p class="tiny" id="chartNote">风险矩阵：可能性 1–5 × 影响程度 1–5 = 风险值 R（1–6 低 / 7–14 中 / 15–25 高），方块中的数字为落在该格内的缺陷条数。</p>
+      </div>
+    </section>
+
+    <!-- ===== 视图 4：评分明细 ===== -->
+    <section class="view" data-view-panel="score">
+      <div class="card">
+        <div class="card-h">
+          <h2>加权风险评分明细</h2>
+          <div class="card-h-r">
+            <button type="button" class="btn btn-ghost btn-sm" data-export="score-csv">导出 CSV</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-export="score-xlsx">导出 Excel</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-export="score-pdf">打印 / PDF</button>
+          </div>
+        </div>
+        <div class="formula-box">
+          <div class="formula-title">评分公式</div>
+          <div class="formula">总分 = 100 × Σ(控制点权重 × 有效性得分) / Σ(控制点权重) − Σ(缺陷权重 × 风险值) ÷ 缺陷条数 × 2</div>
+          <div class="formula-sub">结果保留 2 位小数，固定四舍五入（先转为整数分值再看尾数，避免浮点误差），保证同输入同输出。</div>
+        </div>
+        <div class="score-steps" id="scoreSteps"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>控制点加权明细（逐点列出权重、得分、加权分）</h2><span class="card-h-r tiny" id="scoreCpCount"></span></div>
+        <div class="table-wrap tall">
+          <table class="grid" id="tblScoreCp">
+            <thead><tr>
+              <th class="sortable" data-sort="id">控制点编号</th><th>名称</th><th>风险等级</th>
+              <th class="sortable" data-sort="weight">控制点权重</th><th>设计</th><th>运行</th>
+              <th class="sortable" data-sort="score">有效性得分</th><th class="sortable" data-sort="weighted">加权分（权重×得分）</th>
+              <th>计入说明</th>
+            </tr></thead>
+            <tbody id="tbScoreCp"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>缺陷扣分明细（风险值 = 可能性 × 影响程度）</h2></div>
+        <div class="table-wrap">
+          <table class="grid" id="tblScoreDf">
+            <thead><tr>
+              <th>缺陷编号</th><th>根因摘要</th><th>最终等级</th><th>缺陷权重</th>
+              <th>可能性</th><th>影响程度</th><th>风险值 R</th><th>权重×R</th><th>风险区间</th>
+            </tr></thead>
+            <tbody id="tbScoreDf"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 视图 5：评价结论 ===== -->
+    <section class="view" data-view-panel="conclusion">
+      <div class="card" id="conclusionCard">
+        <div class="card-h">
+          <h2>内控评价结论</h2>
+          <div class="card-h-r">
+            <button type="button" class="btn btn-ghost btn-sm" data-export="conclusion-csv">导出结论（CSV）</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-export="conclusion-pdf">打印 / 保存 PDF</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-export="all-csv">一键下载全部成果</button>
+          </div>
+        </div>
+        <div class="concl-empty" id="conclEmpty">尚未评估。请先到「材料导入与设置」导入三份材料，然后点击「▶ 开始逐点评估」。</div>
+        <div class="concl-body" id="conclBody" hidden></div>
+      </div>
+      <div class="card" id="alertCardWrap" hidden>
+        <div class="card-h"><h2>⚠️ 重大缺陷红色预警卡</h2>
+          <div class="card-h-r"><span class="alert-code">RED ALERT</span>
+            <button type="button" class="btn btn-ghost btn-sm" data-export="alert-pdf">打印 / PDF</button></div>
+        </div>
+        <div id="alertCards"></div>
+      </div>
+    </section>
+
+    <!-- ===== 视图 6：内嵌测试示例 ===== -->
+    <section class="view" data-view-panel="test">
+      <div class="card">
+        <div class="card-h"><h2>内嵌测试示例</h2>
+          <div class="card-h-r">
+            <button type="button" class="btn btn-ghost btn-sm" id="btnTestLoad">加载测试数据</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btnTestRun">▶ 一键运行测试</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btnTestBack">返回主流程</button>
+          </div>
+        </div>
+        <div class="test-intro">本模块内置一套 <b>12 个控制点的迷你测试数据</b>（按 120 个的规则等比缩小），用于快速验证逐点评估、缺陷分类、加权评分、一票否决与红色预警是否正常工作。点击「加载测试数据」会自动填入三个材料框，你可以在「材料导入与设置」中查看与修改。</div>
+        <div class="test-grid">
+          <div class="test-block">
+            <h3>① 控制点清单（C-01 ~ C-12）</h3>
+            <div class="table-wrap mid"><table class="grid compact" id="tblTestCp"><thead><tr><th>编号</th><th>名称</th><th>流程</th><th>风险等级</th><th>责任部门</th><th>控制方式</th><th>控制频率</th></tr></thead><tbody></tbody></table></div>
+          </div>
+          <div class="test-block">
+            <h3>② 自评表（9 条有效 · 3 条无效）</h3>
+            <div class="table-wrap mid"><table class="grid compact" id="tblTestSa"><thead><tr><th>控制点</th><th>自评结论</th><th>执行证据说明</th><th>偏差与整改情况</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </div>
+        <div class="test-block">
+          <h3>③ 缺陷记录表（3 条）</h3>
+          <div class="table-wrap mid"><table class="grid compact" id="tblTestDf"><thead><tr><th>缺陷描述</th><th>涉及控制点</th><th>涉及金额（万元）</th><th>发生次数</th><th>发现方式</th><th>定性红线</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>预期输出 vs 实际结果</h2><span class="card-h-r tiny" id="testRunState">未运行</span></div>
+        <div class="test-compare" id="testCompare">
+          <div class="test-col"><h3>预期输出（固定）</h3><pre class="test-pre" id="testExpected"></pre></div>
+          <div class="test-col"><h3>实际结果</h3><pre class="test-pre" id="testActual">点击「▶ 一键运行测试」后在此显示实际结果。</pre></div>
+        </div>
+        <div class="progress-wrap" id="testProgressWrap" hidden>
+          <div class="progress-head"><span id="testProgressLabel">已评估 0 / 12</span><span id="testProgressPct">0%</span></div>
+          <div class="progress-track"><div class="progress-fill" id="testProgressFill"></div></div>
+        </div>
+        <div class="test-summary" id="testSummary"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ---------- 右栏：结论速览卡（常驻） ---------- -->
+  <aside class="col-side">
+    <div class="card side-card">
+      <div class="card-h"><h2>结论速览</h2><span class="tiny" id="sideStamp">—</span></div>
+      <div class="verdict" id="sideVerdict" data-level="none">
+        <div class="verdict-badge" id="sideBadge">未评估</div>
+        <div class="verdict-sub" id="sideSub">导入材料后开始逐点评估</div>
+      </div>
+      <div class="side-score">
+        <div class="side-score-main"><span id="sideTotal">—</span><em>总分</em></div>
+        <div class="side-score-sub">
+          <div><span>加权得分</span><b id="sideWeighted">—</b></div>
+          <div><span>缺陷扣分</span><b id="sideDeduct">—</b></div>
+        </div>
+      </div>
+      <div class="side-kv">
+        <div class="side-kv-i"><span>覆盖率</span><b id="sideCoverage">—</b></div>
+        <div class="side-kv-i"><span>有效 / 无效 / 证据不足</span><b id="sideEvalSplit">—</b></div>
+        <div class="side-kv-i"><span>缺陷条数</span><b id="sideDefectCount">—</b></div>
+        <div class="side-kv-i"><span>重大 / 重要 / 一般</span><b id="sideDefectSplit">—</b></div>
+        <div class="side-kv-i"><span>一票否决</span><b id="sideVeto">—</b></div>
+        <div class="side-kv-i"><span>预警状态</span><b id="sideAlert">—</b></div>
+      </div>
+      <div class="side-alert" id="sideAlertBox" hidden>
+        <div class="side-alert-t">⚠️ 红色预警</div>
+        <div class="side-alert-d" id="sideAlertDetail"></div>
+      </div>
+      <div class="side-actions">
+        <button type="button" class="btn btn-primary btn-block" id="btnSideDownload" disabled>⬇ 一键下载全部成果</button>
+        <button type="button" class="btn btn-ghost btn-block" id="btnSidePrint" disabled>🖨 打印结论页为 PDF</button>
+      </div>
+      <div class="side-note" id="sideNote">数据只在本机：所有材料仅保存在浏览器内存与本地存储。页面不出现于本机以外的任何服务器，大模型调用除外（可关闭）。</div>
+    </div>
+    <div class="card side-card">
+      <div class="card-h"><h2>缺陷待补清单</h2><span class="tiny" id="sidePendingCount">0 项</span></div>
+      <div class="side-pending" id="sidePending"><div class="empty-mini">暂无证据不足的控制点</div></div>
+    </div>
+  </aside>
+</div>
+
+<footer class="page-foot">
+  <span>华诚集团内部控制评价智能体 · 架构 I 纯前端实现（双击 index.html 即可运行，离线可用）</span>
+  <span>判定与评分由内置规则引擎计算，可复现；大模型仅用于文字表达 · 数据只在本机</span>
+</footer>
+
+<!-- ============================ 弹层：大模型 API 设置 ============================ -->
+<div class="modal" id="modalApi" hidden>
+  <div class="modal-mask" data-close="modalApi"></div>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalApiTitle">
+    <div class="modal-h"><h3 id="modalApiTitle">大模型 API 设置</h3>
+      <button type="button" class="icon-btn" data-close="modalApi" aria-label="关闭">✕</button></div>
+    <div class="modal-b">
+      <div class="current-cfg" id="apiCurrent"></div>
+      <div class="field"><label for="api-provider">服务商</label><input type="text" id="api-provider" placeholder="Finance AI（跃客科技）"></div>
+      <div class="field"><label for="api-model">模型名称</label><input type="text" id="api-model" placeholder="deepseek-flash"></div>
+      <div class="field"><label for="api-key">API Key</label>
+        <div class="key-row">
+          <input type="password" id="api-key" placeholder="sk-...">
+          <button type="button" class="btn btn-ghost btn-sm" id="btnToggleKey">显示</button>
+        </div>
+      </div>
+      <div class="field"><label for="api-base">API Base URL</label><input type="text" id="api-base" placeholder="https://api.deepseek.com"></div>
+      <div class="field"><label for="api-temp">temperature（固定 0.1 以保证可复现，一般无需修改）</label><input type="number" id="api-temp" step="0.1" min="0" max="1"></div>
+      <div class="modal-note">接口调用：<code>POST {BaseURL}/v1/chat/completions</code>，<code>Authorization: Bearer &lt;API Key&gt;</code>，<code>max_tokens 2048</code>。密钥仅保存在本机浏览器 localStorage，请自行评估前端明文存储的安全风险。</div>
+      <div class="test-result" id="apiTestResult"></div>
+    </div>
+    <div class="modal-f">
+      <button type="button" class="btn btn-ghost" id="btnApiTest">保存并测试连接</button>
+      <button type="button" class="btn btn-primary" id="btnApiSave">保存配置</button>
+      <button type="button" class="btn btn-ghost" data-close="modalApi">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ 弹层：密钥提示 ============================ -->
+<div class="modal" id="modalKeyNotice" hidden>
+  <div class="modal-mask" data-close="modalKeyNotice"></div>
+  <div class="modal-box modal-sm" role="dialog" aria-modal="true">
+    <div class="modal-h"><h3>密钥提示</h3><button type="button" class="icon-btn" data-close="modalKeyNotice" aria-label="关闭">✕</button></div>
+    <div class="modal-b">
+      <div class="notice-line">当前使用的是<b>教学测试密钥</b>，正式使用请在「大模型API设置」中填写你自己的 API 密钥。</div>
+      <div class="notice-line tiny">不填写也可以正常使用：判定与评分全部由内置规则引擎完成，大模型只影响判定依据的措辞。</div>
+    </div>
+    <div class="modal-f">
+      <button type="button" class="btn btn-ghost" id="btnNoticeNever">不再提示</button>
+      <button type="button" class="btn btn-ghost" data-close="modalKeyNotice">我知道了</button>
+      <button type="button" class="btn btn-primary" id="btnNoticeGotoApi">去设置</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ 弹层：通用（材料预览 / 说明 / 日志 / 历史） ============================ -->
+<div class="modal" id="modalGeneral" hidden>
+  <div class="modal-mask" data-close="modalGeneral"></div>
+  <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-labelledby="modalGeneralTitle">
+    <div class="modal-h"><h3 id="modalGeneralTitle">详情</h3>
+      <div class="modal-h-r">
+        <button type="button" class="btn btn-ghost btn-sm" id="btnGeneralCopy">复制内容</button>
+        <button type="button" class="icon-btn" data-close="modalGeneral" aria-label="关闭">✕</button>
+      </div>
+    </div>
+    <div class="modal-b" id="modalGeneralBody"></div>
+  </div>
+</div>
+
+<!-- ============================ 提示条 ============================ -->
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<!-- 依赖库与业务脚本内联（架构 I：不使用相对路径引用本地 .js / .css） -->
+<script>
+@@VENDOR_JS@@
+</script>
+<script>
+@@APP_JS@@
+</script>
+</body>
+</html>
